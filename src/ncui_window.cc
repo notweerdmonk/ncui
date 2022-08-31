@@ -131,7 +131,9 @@ void* Window::event_handler(void *param) {
           me.pimpl->ev_lookup[win_ev].cb_data = &key;
 
           if (me.pimpl->is_textfield == true) {
-            me.addchar(key);
+            if (me.pimpl->cur.x <= me.pimpl->win_dim.w) {
+              me.addchar(key);
+            }
 
             if (key == 10)
               me.pimpl->p_text_buf->newline();
@@ -141,10 +143,11 @@ void* Window::event_handler(void *param) {
           if (me.pimpl->is_bordered == true) {
             /* Enter/Return key */
             if (key == 10) {
-              if (me.pimpl->cur.y < me.pimpl->win_dim.h)
+              if (me.pimpl->cur.y < me.pimpl->win_dim.h) {
                 me.move_cur(++me.pimpl->cur.y, 1);
-              else if (me.pimpl->cur.y == me.pimpl->win_dim.h)
+              } else if (me.pimpl->cur.y == me.pimpl->win_dim.h) {
                 me.move_cur(me.pimpl->cur.y, --me.pimpl->cur.x);
+              }
               me.box();
             }
             else if (me.pimpl->cur.x > me.pimpl->win_dim.w) {
@@ -152,7 +155,6 @@ void* Window::event_handler(void *param) {
                 me.move_cur(++me.pimpl->cur.y, 1);
               }
               else if (me.pimpl->cur.y == me.pimpl->win_dim.h) {
-                me.move_cur(me.pimpl->win_dim.h, me.pimpl->win_dim.w);
                 if (me.pimpl->is_textfield) {
                   me.pimpl->p_text_buf->move_col_rel(-1);
                 }
