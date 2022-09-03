@@ -16,7 +16,7 @@ DEPENDENCIES = $(HEADERS)
 
 all: demo
 
-$(OBJECTS): $(SOURCES) $(DEPENDENCIES)
+$(OBJECTS): $(DEPENDENCIES)
 
 .cc.o:
 	g++ $(CFLAGS) $(DEBUG_OPTIONS) -I$(INCLUDE_PATH) -L$(LIB_PATH)  -c $< -o $@ -l$(LIBS)
