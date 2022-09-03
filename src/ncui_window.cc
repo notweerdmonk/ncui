@@ -185,9 +185,7 @@ void* Window::event_handler(void *param) {
 Window::Window(const int _h, const int _w,
                const int _y, const int _x,
                bool _is_bordered,
-               bool _is_textfield) {
-
-  pimpl = new WindowImpl();
+               bool _is_textfield) : pimpl(new WindowImpl()) {
 
   pimpl->parent_win_handle = NULL;
 
@@ -241,9 +239,7 @@ Window::Window(Window* p_parent_win,
                const int _h, const int _w,
                const int _y, const int _x,
                bool _is_bordered,
-               bool _is_textfield) {
-
-  pimpl = new WindowImpl();
+               bool _is_textfield) : pimpl(new WindowImpl()) {
 
   WINDOW *_parent_win_handle = p_parent_win->get_win_handle();
   if (_parent_win_handle == NULL) {
@@ -312,8 +308,6 @@ Window::~Window() {
   }
   Screen::get_instance()->remove_win(this);
   delwin(pimpl->win);
-
-  delete pimpl;
 }
 
 Window* Window::create_window(const int _h, const int _w,

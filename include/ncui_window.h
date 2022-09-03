@@ -36,7 +36,7 @@ namespace ncui {
      * A pointer to an instance of ncui::Window::WindowImpl class that
      * implements the functionality.
      */
-    WindowImpl* pimpl;
+    std::unique_ptr<WindowImpl> pimpl;
 
   private:
     /**
