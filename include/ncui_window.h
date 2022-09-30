@@ -38,6 +38,10 @@ namespace ncui {
      */
     std::unique_ptr<WindowImpl> pimpl;
 
+    Window* parent_window;
+
+    std::vector<Window*> children;
+
   private:
     /**
      * @brief Get the ncurses WINDOW pointer for the current window.
@@ -63,12 +67,6 @@ namespace ncui {
      * @brief Draw a border around the window.
      */
     void box();
-
-    /**
-     * @brief 
-     * @param param An opaque pointer.
-     */
-    static void *event_handler(void *param);
 
     /**
      * @brief Constructor.

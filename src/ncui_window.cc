@@ -11,316 +11,523 @@
 /* TODO: use forms library */
 /* TODO: invisible borders */
 /* TODO: title for windows */
+/* TODO: use ncursesw and support wide characters */
 
 using namespace ncui;
 
-typedef struct {
-  win_ev_cb_t       cb;
-  win_ev_cb_data_t  cb_data;
-  win_ev_user_data_t user_data;
-} win_ev_entry_t;
-
-typedef struct {
-  int h, w;
-} dim_t;
-
-typedef struct {
-  int y, x;
-} coord_t;
-
-typedef struct {
-  int x, y;
-} cursor_t;
-
 class Window::WindowImpl {
-  WINDOW*               win;
 
-  Window*               parent_win;
-  WINDOW*               parent_win_handle;
-  std::vector<Window*>  children;
+  typedef struct {
+    win_ev_cb_t       cb;
+    win_ev_cb_data_t  cb_data;
+    win_ev_user_data_t user_data;
+  } win_ev_entry_t;
 
-  bool                  is_bordered  : 1;
-  bool                  is_dirty     : 1;
-  bool                  is_textfield : 1;
-  bool                  was_resized  : 1;
-  bool                  has_focus    : 1;
+  typedef struct {
+    int h, w;
+  } dim_t;
 
-  field_buf_t*          p_text_buf;
+  typedef struct {
+    int y, x;
+  } coord_t;
 
-  int                   h, w, y, x;
+  typedef struct {
+    int x, y;
+  } cursor_t;
 
-  dim_t                 win_dim;
-  coord_t               win_coord;
-  cursor_t              cur;
-  dim_t                 resize_dim;
+  WINDOW*        win_handle;
 
-  win_ev_entry_t        ev_lookup[WIN_EV_MAX];
-  win_cb_t              update_cb;
-  win_cb_data_t         update_cb_data;
+  WINDOW*        parent_win_handle;
 
-  pthread_t             event_handler_thread;
+  bool           is_bordered  : 1;
+  bool           is_dirty     : 1;
+  bool           is_textfield : 1;
+  bool           was_resized  : 1;
+  bool           has_focus    : 1;
 
-  friend class Window;
-};
+  field_buf_t*   p_text_buf;
 
-WINDOW* Window::get_win_handle() {
-  return pimpl->win;
-}
+  int            h, w, y, x;
 
-void Window::add_child(Window* child) {
-  pimpl->children.push_back(child);
-}
+  dim_t          win_dim;
+  coord_t        win_coord;
+  cursor_t       cur;
+  dim_t          resize_dim;
 
-void Window::del_child(Window* child) {
-  pimpl->children.erase(std::remove(
-        pimpl->children.begin(),
-        pimpl->children.end(), child),
-        pimpl->children.end()
-      );
-}
+  win_ev_entry_t ev_lookup[WIN_EV_MAX];
+  win_cb_t       update_cb;
+  win_cb_data_t  update_cb_data;
 
-void* Window::event_handler(void *param) {
-#if 0    
-  Window *p_me = (Window*)param;
-#else
-  Window& me = *( (Window*)param );
-#endif    
+  pthread_t      event_handler_thread;
 
-  MEVENT ev;
-  win_event_t win_ev;
-  int key;
+  //friend class Window;
+  
+  public:
 
-  win_ev = WIN_EV_NONE;
-  key = me.getchar();
+  WindowImpl(
+      WINDOW* parent_win,
+      const int h, const int w,
+      const int y, const int x,
+      bool is_bordered,
+      bool is_textfield
+    ) {
 
-  if (key == ERR) {
-    return NULL;
+    parent_win_handle = parent_win;
+
+    if (parent_win) {
+
+      win_handle = derwin(parent_win, h, w, y, x);
+      if (win_handle == NULL) {
+        throw std::runtime_error("WindowImpl: derwin failed");
+      }
+    } else {
+
+      win_handle = newwin(h, w, y, x);
+      if (win_handle == NULL) {
+        throw std::runtime_error("WindowImpl: newwin failed");
+      }
+    }
+
+    for (int i = 0; i < WIN_EV_MAX; i++) {
+      ev_lookup[i].cb = NULL;
+      ev_lookup[i].cb_data = NULL;
+      ev_lookup[i].user_data = NULL;
+    }
+
+    update_cb = &event_handler;
+    update_cb_data = this;
+
+    win_dim.h = h;
+    win_dim.w = w;
+    win_coord.y = y;
+    win_coord.x = x;
+    cur.x = cur.y = 0;
+
+    this->is_bordered = is_bordered;
+    if (this->is_bordered == TRUE) {
+      win_dim.h -= 2;
+      win_dim.w -= 2;
+    }
+
+    this->is_textfield = is_textfield;
+    if (this->is_textfield == TRUE) {
+      keypad(win_handle, TRUE);
+      nodelay(win_handle, TRUE);
+
+      p_text_buf = new field_buf_t(win_dim.h, win_dim.w);
+    }
+    else {
+      p_text_buf = NULL;
+    }
+
+    clear();
+
+    if (is_bordered == TRUE) {
+      box();
+    }
   }
 
-  switch(key) {
-    case KEY_MOUSE:
-    {
-      if (getmouse(&ev) == OK) {
-        win_ev = WIN_EV_MOUSE;
-        /* copy data */
-        me.pimpl->ev_lookup[win_ev].cb_data = &ev.bstate;
-      }
-      break;
+  ~WindowImpl() {
+    wclear(win_handle);
+    wrefresh(win_handle);
+    if (p_text_buf != NULL) {
+      delete p_text_buf;
+      p_text_buf = NULL;
     }
-    case KEY_RESIZE:
-    {
-      if (me.pimpl->was_resized == true) {
-        win_ev = WIN_EV_RESIZE;
-        me.pimpl->ev_lookup[win_ev].cb_data = &me.pimpl->resize_dim;
-      }
-      break;
+    delwin(win_handle);
+  }
+
+  WINDOW* get_win_handle() {
+    return win_handle;
+  }
+
+  /**
+   * @brief 
+   * @param param An opaque pointer.
+   */
+  static void* event_handler(void *param) {
+#if 0    
+    Window *p_me = (Window*)param;
+#else
+    WindowImpl& me = *((WindowImpl*)param);
+#endif    
+
+    MEVENT ev;
+    win_event_t win_ev;
+    int key;
+
+    win_ev = WIN_EV_NONE;
+    key = me.getchar();
+
+    if (key == ERR) {
+      return NULL;
     }
-    default:
-    {
-      if (me.pimpl->is_textfield) {
-        /* Backspace needs special handling */
-        if (key == KEY_BACKSPACE) {
-          win_ev = WIN_EV_TERM;
-          me.pimpl->ev_lookup[win_ev].cb_data = &key;
-          me.bksp();
-        }
-        /* Keyboard events */
-        else if ((key >= 0) &&
-                 (key <= 127)) {
-          win_ev = WIN_EV_TERM;
-          me.pimpl->ev_lookup[win_ev].cb_data = &key;
 
-          if (me.pimpl->is_textfield == true) {
-            if (me.pimpl->cur.x <= me.pimpl->win_dim.w) {
-              me.addchar(key);
-            }
-
-            if (key == 10)
-              me.pimpl->p_text_buf->newline();
-            else
-              me.pimpl->p_text_buf->put(key);
+    switch(key) {
+      case KEY_MOUSE:
+        {
+          if (getmouse(&ev) == OK) {
+            win_ev = WIN_EV_MOUSE;
+            /* copy data */
+            me.ev_lookup[win_ev].cb_data = &ev.bstate;
           }
-          if (me.pimpl->is_bordered == true) {
-            /* Enter/Return key */
-            if (key == 10) {
-              if (me.pimpl->cur.y < me.pimpl->win_dim.h) {
-                me.move_cur(++me.pimpl->cur.y, 1);
-              } else if (me.pimpl->cur.y == me.pimpl->win_dim.h) {
-                me.move_cur(me.pimpl->cur.y, --me.pimpl->cur.x);
-              }
-              me.box();
+          break;
+        }
+      case KEY_RESIZE:
+        {
+          if (me.was_resized == true) {
+            win_ev = WIN_EV_RESIZE;
+            me.ev_lookup[win_ev].cb_data = &me.resize_dim;
+          }
+          break;
+        }
+      default:
+        {
+          if (me.is_textfield) {
+            /* Backspace needs special handling */
+            if (key == KEY_BACKSPACE) {
+              win_ev = WIN_EV_TERM;
+              me.ev_lookup[win_ev].cb_data = &key;
+              me.bksp();
             }
-            else if (me.pimpl->cur.x > me.pimpl->win_dim.w) {
-              if (me.pimpl->cur.y < me.pimpl->win_dim.h) {
-                me.move_cur(++me.pimpl->cur.y, 1);
+            /* Keyboard events */
+            else if ((key >= 0) &&
+                (key <= 127)) {
+              win_ev = WIN_EV_TERM;
+              me.ev_lookup[win_ev].cb_data = &key;
+
+              if (me.is_textfield == true) {
+                if (me.cur.x <= me.win_dim.w) {
+                  me.addchar(key);
+                }
+
+                if (key == 10)
+                  me.p_text_buf->newline();
+                else
+                  me.p_text_buf->put(key);
               }
-              else if (me.pimpl->cur.y == me.pimpl->win_dim.h) {
-                if (me.pimpl->is_textfield) {
-                  me.pimpl->p_text_buf->move_col_rel(-1);
+              if (me.is_bordered == true) {
+                /* Enter/Return key */
+                if (key == 10) {
+                  if (me.cur.y < me.win_dim.h) {
+                    me.move_cur(++me.cur.y, 1);
+                  } else if (me.cur.y == me.win_dim.h) {
+                    me.move_cur(me.cur.y, --me.cur.x);
+                  }
+                  me.box();
+                }
+                else if (me.cur.x > me.win_dim.w) {
+                  if (me.cur.y < me.win_dim.h) {
+                    me.move_cur(++me.cur.y, 1);
+                  }
+                  else if (me.cur.y == me.win_dim.h) {
+                    if (me.is_textfield) {
+                      me.p_text_buf->move_col_rel(-1);
+                    }
+                  }
                 }
               }
             }
+            /* Movement keys */
+            else if ((key >= KEY_DOWN) &&
+                (key < KEY_MOUSE)) {
+              win_ev = WIN_EV_KEY;
+              me.ev_lookup[win_ev].cb_data = &key;
+            }
+          } /* if (is_textfield) */
+        }
+    }
+
+    if (win_ev != WIN_EV_NONE) {
+      win_ev_entry_t ev_data = me.ev_lookup[win_ev];
+      if (ev_data.cb != NULL) {
+        ev_data.cb(ev_data.cb_data, ev_data.user_data);
+      }
+    }
+
+    return NULL;
+  }
+
+  void reg_cb(win_cb_t cb, win_cb_data_t cb_data) {
+    update_cb = cb;
+    update_cb_data = cb_data;
+  }
+
+  void dereg_cb() {
+    update_cb = NULL;
+    update_cb_data = NULL;
+  }
+
+  void reg_event_handler(
+      win_event_t ev,
+      win_ev_cb_t cb,
+      win_ev_user_data_t user_data
+    ) {
+
+    ev_lookup[ev].cb = cb;
+    ev_lookup[ev].user_data = user_data;
+  }
+
+  void dereg_cb(win_event_t ev) {
+    ev_lookup[ev].cb = NULL;
+    ev_lookup[ev].user_data = NULL;
+  }
+
+  void box() {
+    ::box(win_handle, 0, 0);
+    is_dirty = true;
+  }
+
+  void print(int y, int x, std::string str) {
+    if (!is_textfield) {
+
+      if (!is_bordered) {
+        mvwprintw(win_handle, y, x, str.c_str());
+
+      } else {
+        int height = win_dim.h;
+        std::size_t len = str.length();
+        std::size_t pos = 0;
+
+        if (is_bordered) {
+          y++, x++;
+        }
+
+        bool first_line = true;
+        while (len && y <= height) {
+          std::size_t count = win_dim.w - (x - 1);
+          std::string tmp = str.substr(pos, count);
+          count = tmp.length();
+          mvwprintw(win_handle, y++, x, tmp.c_str());
+          len -= count;
+          pos += count;
+          if (first_line) {
+            x = (is_bordered) ? 1: 0;
+            first_line = false;
           }
         }
-        /* Movement keys */
-        else if ((key >= KEY_DOWN) &&
-                 (key < KEY_MOUSE)) {
-          win_ev = WIN_EV_KEY;
-          me.pimpl->ev_lookup[win_ev].cb_data = &key;
-        }
-      } /* if (is_textfield) */
+      }
+
+      is_dirty = true;
     }
   }
 
-  if (win_ev != WIN_EV_NONE) {
-    win_ev_entry_t ev_data = me.pimpl->ev_lookup[win_ev];
-    if (ev_data.cb != NULL) {
-      ev_data.cb(ev_data.cb_data, ev_data.user_data);
+  void move(int y, int x) {
+    win_coord.y = y;
+    win_coord.x = x;
+    mvwin(win_handle, win_coord.y, win_coord.x);
+    is_dirty = true;
+  }
+
+  void move_cur(int y, int x) {
+    if (is_bordered) {
+      if (y < 1) {
+        y = 1;
+      }
+      if (x < 1) {
+        x = 1;
+      }
+    }
+    else {
+      if (y < 0) {
+        y = 0;
+      }
+      if (x < 0) {
+        x = 0;
+      }
+    }
+
+    if (y > win_dim.h) {
+      y = win_dim.h;
+    }
+    if (x > win_dim.w) {
+      x = win_dim.w;
+    }
+
+    wmove(win_handle, y, x);
+
+    cur.y = y;
+    cur.x = x;
+
+    is_dirty = true;
+  }
+
+  void move_cur_rel(int y_offset, int x_offset) {
+    cur.y += y_offset;
+    cur.x += x_offset;
+
+    if (is_bordered) {
+      if (cur.y < 1) {
+        cur.y = 1;
+      }
+      if (cur.x < 1) {
+        cur.x = 1;
+      }
+    }
+    else {
+      if (cur.y < 0) {
+        cur.y = 0;
+      }
+      if (cur.x < 0) {
+        cur.x = 0;
+      }
+    }
+
+    if (cur.y > win_dim.h) {
+      cur.y = win_dim.h;
+    }
+    if (cur.x > win_dim.w) {
+      cur.x = win_dim.w;
+    }
+
+    wmove(win_handle, cur.y, cur.x);
+
+    is_dirty = true;
+  }
+
+  void get_cur(int& y, int& x) {
+    getyx(win_handle, y, x);
+  }
+
+  void clear() {
+    wclear(win_handle);
+    if (is_bordered) {
+      move_cur(1, 1);
+    } else {
+      move_cur(0, 0);
     }
   }
 
-  return NULL;
+  void draw() {
+    //if (is_bordered == TRUE) {
+    //  box();
+    //}
+    is_dirty = false;
+    if (parent_win_handle) {
+      touchwin(parent_win_handle);
+    }
+    wrefresh(win_handle);
+  }
+
+  void update() {
+    if (has_focus) {
+      if(update_cb != NULL) {
+        update_cb(update_cb_data);
+      }
+    }
+
+    if (is_dirty) {
+      draw();
+    }
+  }
+
+  int getchar() {
+    return wgetch(win_handle);
+  }
+
+  int addchar(char c) {
+    is_dirty = true;
+    ++cur.x;
+    return waddch(win_handle, c);
+  }
+
+  void bksp() {
+    if (((is_bordered == true) && (cur.x > 1)) &&
+        (cur.x > 0)) {
+      mvwaddch(win_handle, cur.y, --cur.x, ' ');
+      wmove(win_handle, cur.y, cur.x);
+      is_dirty = true;
+    }
+    else if ((is_bordered == true && cur.y > 1) &&
+             cur.y > 0) {
+      cur.x = win_dim.w;
+      mvwaddch(win_handle, --cur.y, cur.x, ' ');
+      wmove(win_handle, cur.y, cur.x);
+      is_dirty = true;
+    }
+
+    if (is_textfield == true) {
+      p_text_buf->bksp();
+    }
+  }
+
+  void set_focus(bool focus) {
+    has_focus = focus;
+  }
+};
+
+WINDOW* Window::get_win_handle() {
+  return pimpl->get_win_handle();
 }
 
-Window::Window(const int _h, const int _w,
-               const int _y, const int _x,
-               bool _is_bordered,
-               bool _is_textfield) : pimpl(new WindowImpl()) {
+void Window::add_child(Window* child) {
+  children.push_back(child);
+}
 
-  pimpl->parent_win_handle = NULL;
+void Window::del_child(Window* child) {
+  children.erase(
+      std::remove(children.begin(), children.end(), child),
+      children.end()
+    );
+}
 
-  pimpl->win = newwin(_h, _w, _y, _x);
-  if (pimpl->win == NULL) {
-    throw std::runtime_error("Window: creation failed!");
-  }
 
-  for (int i = 0; i < WIN_EV_MAX; i++) {
-    pimpl->ev_lookup[i].cb = NULL;
-    pimpl->ev_lookup[i].cb_data = NULL;
-    pimpl->ev_lookup[i].user_data = NULL;
-  }
-
-  pimpl->update_cb = &Window::event_handler;
-  pimpl->update_cb_data = this;
-
-  pimpl->win_dim.h = _h;
-  pimpl->win_dim.w = _w;
-  pimpl->win_coord.y = _y;
-  pimpl->win_coord.x = _x;
-  pimpl->cur.x = pimpl->cur.y = 0;
-
-  pimpl->is_bordered = _is_bordered;
-  if (pimpl->is_bordered == TRUE) {
-    pimpl->win_dim.h -= 2;
-    pimpl->win_dim.w -= 2;
-    move_cur(1,1);
-  }
-
-  pimpl->is_textfield = _is_textfield;
-  if (pimpl->is_textfield == TRUE) {
-    keypad(pimpl->win, TRUE);
-    nodelay(pimpl->win, TRUE);
-
-    pimpl->p_text_buf = new field_buf_t(pimpl->win_dim.h, pimpl->win_dim.w);
-  }
-  else {
-    pimpl->p_text_buf = NULL;
-  }
-
-  clear();
-  if (pimpl->is_bordered == TRUE) {
-    box();
-  }
+Window::Window(
+    const int h, const int w,
+    const int y, const int x,
+    bool is_bordered,
+    bool is_textfield
+  ) : pimpl(
+        new WindowImpl(
+          NULL,
+          h, w,
+          y, x,
+          is_bordered,
+          is_textfield
+        )
+      ) {
 
   Screen::get_instance()->add_win(this);
 }
 
-Window::Window(Window* p_parent_win,
-               const int _h, const int _w,
-               const int _y, const int _x,
-               bool _is_bordered,
-               bool _is_textfield) : pimpl(new WindowImpl()) {
+Window::Window(
+    Window* parent_window,
+    const int h, const int w,
+    const int y, const int x,
+    bool is_bordered,
+    bool is_textfield
+  ) : pimpl(
+    new WindowImpl(
+      parent_window->get_win_handle(),
+      h, w,
+      y, x,
+      is_bordered,
+      is_textfield
+      )
+    ) {
 
-  WINDOW *_parent_win_handle = p_parent_win->get_win_handle();
-  if (_parent_win_handle == NULL) {
-    throw std::runtime_error("Window: invalid parent!");
-  }
-  pimpl->win = derwin(_parent_win_handle, _h, _w, _y, _x);
-  if (pimpl->win == NULL) {
-    throw std::runtime_error("Window: creation failed!");
-  }
-
-  pimpl->update_cb = &Window::event_handler;
-  pimpl->update_cb_data = this;
-
-  pimpl->parent_win_handle = _parent_win_handle;
-  pimpl->parent_win = p_parent_win;
-
-  for (int i = 0; i < WIN_EV_MAX; i++) {
-    pimpl->ev_lookup[i].cb = NULL;
-    pimpl->ev_lookup[i].cb_data = NULL;
-    pimpl->ev_lookup[i].user_data = NULL;
-  }
-
-  pimpl->win_dim.h = _h;
-  pimpl->win_dim.w = _w;
-  pimpl->win_coord.y = _y;
-  pimpl->win_coord.x = _x;
-  pimpl->cur.x = pimpl->cur.y = 0;
-
-  pimpl->is_bordered = _is_bordered;
-  if (pimpl->is_bordered == TRUE) {
-    pimpl->win_dim.h -= 2;
-    pimpl->win_dim.w -= 2;
-    move_cur(1,1);
-  }
-
-  pimpl->is_textfield = _is_textfield;
-  if (pimpl->is_textfield == TRUE) {
-    keypad(pimpl->win, TRUE);
-    nodelay(pimpl->win, TRUE);
-
-    pimpl->p_text_buf = new field_buf_t(pimpl->win_dim.h, pimpl->win_dim.w);
-  }
-  else {
-    pimpl->p_text_buf = NULL;
-  }
-
-  clear();
-  if (pimpl->is_bordered == TRUE) {
-    box();
-  }
-
-  p_parent_win->add_child(this);
+  parent_window->add_child(this);
   Screen::get_instance()->add_win(this);
 }
 
 Window::~Window() {
-
-  wclear(pimpl->win);
-  wrefresh(pimpl->win);
-  if (pimpl->p_text_buf != NULL) {
-    delete pimpl->p_text_buf;
-    pimpl->p_text_buf = NULL;
-  }
-  if (pimpl->parent_win != NULL) {
-    pimpl->parent_win->del_child(this);
+  if (parent_window != NULL) {
+    parent_window->del_child(this);
   }
   Screen::get_instance()->remove_win(this);
-  delwin(pimpl->win);
 }
 
 Window* Window::create_window(const int _h, const int _w,
-                              const int _y, const int _x,
-                              bool _is_bordered,
-                              bool _is_textfield) {
+    const int _y, const int _x,
+    bool _is_bordered,
+    bool _is_textfield) {
 
   Window* new_win = NULL;
   try {
     new_win  = new Window(_h, _w,
-                          _y, _x,
-                          _is_bordered,
-                          _is_textfield);
+        _y, _x,
+        _is_bordered,
+        _is_textfield);
   }
   catch(std::exception e) {
     return NULL;
@@ -328,245 +535,110 @@ Window* Window::create_window(const int _h, const int _w,
   return new_win;
 }
 
-Window* Window::create_window(Window* p_parent_win,
-                              const int _h, const int _w,
-                              const int _y, const int _x,
-                              bool _is_bordered,
-                              bool _is_textfield) {
+Window* Window::create_window(
+    Window* p_parent_win,
+    const int h, const int w,
+    const int y, const int x,
+    bool is_bordered,
+    bool is_textfield
+  ) {
 
   Window* new_win = NULL;
   try {
-    new_win  = new Window(p_parent_win,
-                          _h, _w,
-                          _y, _x,
-                          _is_bordered,
-                          _is_textfield);
-  }
-  catch(std::exception e) {
+    new_win = new Window(
+        p_parent_win,
+        h, w,
+        y, x,
+        is_bordered,
+        is_textfield
+      );
+  } catch(std::exception e) {
     return NULL;
   }
   return new_win;
 }
 
-void Window::destroy_win(Window *_win) {
-  if (_win != NULL) {
-    delete _win;
-    _win = NULL;
+void Window::destroy_win(Window *win) {
+  if (win != NULL) {
+    delete win;
+    win = NULL;
   }
 }
 
 void Window::reg_cb(win_cb_t cb, win_cb_data_t cb_data) {
-  pimpl->update_cb = cb;
-  pimpl->update_cb_data = cb_data;
+  pimpl->reg_cb(cb, cb_data);
 }
 
 void Window::dereg_cb() {
-  pimpl->update_cb = NULL;
-  pimpl->update_cb_data = NULL;
+  pimpl->dereg_cb();
 }
 
-void Window::reg_event_handler(win_event_t ev, win_ev_cb_t cb, win_ev_user_data_t user_data) {
-  pimpl->ev_lookup[ev].cb = cb;
-  pimpl->ev_lookup[ev].user_data = user_data;
+void Window::reg_event_handler(
+    win_event_t ev,
+    win_ev_cb_t cb,
+    win_ev_user_data_t user_data
+  ) {
+
+  pimpl->reg_event_handler(ev, cb, user_data);
 }
 
 void Window::dereg_cb(win_event_t ev) {
-  pimpl->ev_lookup[ev].cb = NULL;
-  pimpl->ev_lookup[ev].user_data = NULL;
+  pimpl->dereg_cb(ev);
 }
 
 void Window::box() {
-  ::box(pimpl->win, 0, 0);    
-  pimpl->is_dirty = true;
+  pimpl->box();
 }
 
 void Window::print(int y, int x, std::string str) {
-  if (!pimpl->is_textfield) {
-
-    if (!pimpl->is_bordered) {
-      mvwprintw(pimpl->win, y, x, str.c_str());
-
-    } else {
-      int height = pimpl->win_dim.h;
-      std::size_t len = str.length();
-      std::size_t pos = 0;
-
-      if (pimpl->is_bordered) {
-        y++, x++;
-      }
-
-      bool first_line = true;
-      while (len && y <= height) {
-        std::size_t count = pimpl->win_dim.w - (x - 1);
-        std::string tmp = str.substr(pos, count);
-        count = tmp.length();
-        mvwprintw(pimpl->win, y++, x, tmp.c_str());
-        len -= count;
-        pos += count;
-        if (first_line) {
-          x = (pimpl->is_bordered) ? 1: 0;
-          first_line = false;
-        }
-      }
-    }
-
-    pimpl->is_dirty = true;
-  }
+  pimpl->print(y, x, str);
 }
 
 void Window::print(std::string str) {
-  print(0, 0, str);
-#if 0
-  if (!pimpl->is_textfield) {
-
-    if (!pimpl->is_bordered) {
-      wprintw(pimpl->win, str.c_str());
-
-    } else {
-      int y = 0, x = 0;
-      int height = pimpl->win_dim.h;
-      std::size_t len = str.length();
-      std::size_t pos = 0;
-
-      if (pimpl->is_bordered) {
-        y = x = 1;
-      }
-
-      while (len && y <= height) {
-        std::size_t count = pimpl->win_dim.w;
-        std::string tmp = str.substr(pos, count);
-        count = tmp.length();
-        mvwprintw(pimpl->win, y++, x, tmp.c_str());
-        len -= count;
-        pos += count;
-      }
-    }
-
-    pimpl->is_dirty = true;
-  }
-#endif
+  pimpl->print(0, 0, str);
 }
 
-void Window::move(int _y, int _x) {
-  pimpl->win_coord.y = _y;
-  pimpl->win_coord.x = _x;
-  mvwin(pimpl->win, pimpl->win_coord.y, pimpl->win_coord.x);
-  pimpl->is_dirty = true;
+void Window::move(int y, int x) {
+  pimpl->move(y, x);
 }
 
-void Window::move_cur(int _y, int _x) {
-  pimpl->cur.y = _y;
-  pimpl->cur.x = _x;
-  if (pimpl->is_bordered) {
-    if (pimpl->cur.y < 1)
-      pimpl->cur.y = 1;
-    if (pimpl->cur.x < 1)
-      pimpl->cur.x = 1;
-  }
-  else {
-    if (pimpl->cur.y < 0)
-      pimpl->cur.y = 0;
-    if (pimpl->cur.x < 0)
-      pimpl->cur.x = 0;
-  }
-  if (pimpl->cur.y > pimpl->win_dim.h)
-    pimpl->cur.y = pimpl->win_dim.h;
-  if (pimpl->cur.x > pimpl->win_dim.w)
-    pimpl->cur.x = pimpl->win_dim.w;
-  wmove(pimpl->win, pimpl->cur.y, pimpl->cur.x);
-  pimpl->is_dirty = true;
+void Window::move_cur(int y, int x) {
+  pimpl->move_cur(y, x);
 }
 
-void Window::move_cur_rel(int _y_offset, int _x_offset) {
-  pimpl->cur.y += _y_offset;
-  pimpl->cur.x += _x_offset;
-  if (pimpl->is_bordered) {
-    if (pimpl->cur.y < 1)
-      pimpl->cur.y = 1;
-    if (pimpl->cur.x < 1)
-      pimpl->cur.x = 1;
-  }
-  else {
-    if (pimpl->cur.y < 0)
-      pimpl->cur.y = 0;
-    if (pimpl->cur.x < 0)
-      pimpl->cur.x = 0;
-  }
-  if (pimpl->cur.y > pimpl->win_dim.h)
-    pimpl->cur.y = pimpl->win_dim.h;
-  if (pimpl->cur.x > pimpl->win_dim.w)
-    pimpl->cur.x = pimpl->win_dim.w;
-  wmove(pimpl->win, pimpl->cur.y, pimpl->cur.x);
-  pimpl->is_dirty = true;
+void Window::move_cur_rel(int y_offset, int x_offset) {
+  pimpl->move_cur_rel(y_offset, x_offset);
 }
 
 
-void Window::get_cur(int& _y, int& _x) {
-  getyx(pimpl->win, _y, _x);
+void Window::get_cur(int& y, int& x) {
+  pimpl->get_cur(y, x);
 }
 
 void Window::clear() {
-  wclear(pimpl->win);
-  if (pimpl->is_bordered == true)
-    move_cur(1, 1);
-  else
-    move_cur(0, 0);
+  pimpl->clear();
 }
 
 void Window::draw() {
-  //if (is_bordered == TRUE)
-  //{
-  //  box();
-  //}
-  pimpl->is_dirty = false;
-  if (pimpl->parent_win_handle) {
-    touchwin(pimpl->parent_win_handle);
-  }
-  wrefresh(pimpl->win);
+  pimpl->draw();
 }
 
 void Window::update() {
-  if (pimpl->has_focus) {
-    if(pimpl->update_cb != NULL) {
-      pimpl->update_cb(pimpl->update_cb_data);
-    }
-  }
-
-  if (pimpl->is_dirty) {
-    draw();
-  }
+  pimpl->update();
 }
 
-int Window::getchar()
-{
-  return wgetch(pimpl->win);
+int Window::getchar() {
+  return pimpl->getchar();
 }
 
 int Window::addchar(char c) {
-  pimpl->is_dirty = true;
-  pimpl->cur.x++;
-  return waddch(pimpl->win, c);
+  return pimpl->addchar(c);
 }
 
 void Window::bksp() {
-  if (((pimpl->is_bordered == true) && (pimpl->cur.x > 1)) &&
-      (pimpl->cur.x > 0)) {
-    mvwaddch(pimpl->win, pimpl->cur.y, --pimpl->cur.x, ' ');
-    wmove(pimpl->win, pimpl->cur.y, pimpl->cur.x);
-    pimpl->is_dirty = true;
-  }
-  else if ((pimpl->is_bordered == true && pimpl->cur.y > 1) &&
-           pimpl->cur.y > 0) {
-    pimpl->cur.x = pimpl->win_dim.w;
-    mvwaddch(pimpl->win, --pimpl->cur.y, pimpl->cur.x, ' ');
-    wmove(pimpl->win, pimpl->cur.y, pimpl->cur.x);
-    pimpl->is_dirty = true;
-  }
-  if (pimpl->is_textfield == true) {
-    pimpl->p_text_buf->bksp();
-  }
+  pimpl->bksp();
 }
 
 void Window::set_focus(bool focus) {
-  pimpl->has_focus = focus;
+  pimpl->set_focus(focus);
 }
