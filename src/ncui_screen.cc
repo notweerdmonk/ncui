@@ -87,7 +87,7 @@ bool Screen::should_exit() {
 }
 
 void Screen::print(int y, int x, std::string str) {
-  mvprintw(y, x, str.c_str());
+  mvprintw(y, x, "%s", str.c_str());
 }
 
 void Screen::refresh() {

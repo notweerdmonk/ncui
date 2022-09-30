@@ -282,7 +282,7 @@ class Window::WindowImpl {
     if (!is_textfield) {
 
       if (!is_bordered) {
-        mvwprintw(win_handle, y, x, str.c_str());
+        mvwprintw(win_handle, y, x, "%s", str.c_str());
 
       } else {
         int height = win_dim.h;
@@ -298,7 +298,7 @@ class Window::WindowImpl {
           std::size_t count = win_dim.w - (x - 1);
           std::string tmp = str.substr(pos, count);
           count = tmp.length();
-          mvwprintw(win_handle, y++, x, tmp.c_str());
+          mvwprintw(win_handle, y++, x, "%s", tmp.c_str());
           len -= count;
           pos += count;
           if (first_line) {
