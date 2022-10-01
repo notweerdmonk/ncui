@@ -9,106 +9,125 @@
 
 using namespace ncui;
 
-Screen* Screen::scr = NULL;
-
 class Screen::ScreenImpl {
-  bool                    exit_condition;
-
-  std::vector<Window*>    windows;
-  int                     num_windows;
+  bool                    exit_cond;
 
   scr_cb_t                update_cb;
   scr_cb_data_t           update_cb_data;
 
-  friend class Screen;
+  public:
+
+  ScreenImpl() {
+    
+    void *status = initscr();
+    if (status == NULL) {
+      throw std::runtime_error("Screen: creation failed!");
+    }
+    else {
+      curs_set(0);
+      cbreak();
+      noecho();
+      mousemask(ALL_MOUSE_EVENTS, NULL);
+    }
+  }
+
+  ~ScreenImpl() {
+  }
+
+  int set_cursor(int visibility) {
+    if (visibility < 0) {
+      visibility = 0;
+    } else if (visibility > 2) {
+      visibility = 2;
+    }
+
+    return curs_set(visibility);
+  }
+
+  void enable_color() {
+    start_color();
+  }
+
+  void exit_screen() {
+    exit_cond = true;
+  }
+
+  bool should_exit() {
+    return exit_cond == true;
+  }
+
+  void print(int y, int x, std::string& str) {
+    mvprintw(y, x, "%s", str.c_str());
+  }
+
+  void refresh() {
+    ::refresh();
+  }
+
+  void clear() {
+    ::clear();
+  }
+
+  void update() {
+    if (update_cb) {
+      update_cb(update_cb_data);
+    }
+  }
 };
 
-Screen::Screen() {
+Screen::Screen() : pimpl(new ScreenImpl()) {
 
-  pimpl = new ScreenImpl();
-
-  void *status = initscr();
-  if (status == NULL) {
-    throw std::runtime_error("Screen: creation failed!");
-  }
-  else {
-    curs_set(0);
-    cbreak();
-    noecho();
-    mousemask(ALL_MOUSE_EVENTS, NULL);
-  }
 }
 
 Screen::~Screen() {
-  endwin();
 
-  delete pimpl;
 }
 
-Screen* Screen::get_instance() {
-  return scr;
-}
-
-Screen* Screen::init() {
-  if (scr == NULL) {
-    try {
-      scr = new Screen();
-    }
-    catch(std::exception e) {
-      return NULL;
-    }
-  }
-
-  return scr;
+Screen& Screen::get_instance() {
+  static Screen instance;
+  return instance;
 }
 
 int Screen::set_cursor(int visibility) {
-  if (visibility < 0) {
-    visibility = 0;
-  } else if (visibility > 2) {
-    visibility = 2;
-  }
-
-  return curs_set(visibility);
+  return pimpl->set_cursor(visibility);
 }
 
 void Screen::enable_color() {
-  if (scr != NULL) {
-    start_color();
-  }
+  pimpl->enable_color();
 }
 
 void Screen::exit_screen() {
-  Screen::get_instance()->pimpl->exit_condition = true;
+  get_instance().pimpl->exit_screen();
 }
 
 bool Screen::should_exit() {
-  return Screen::get_instance()->pimpl->exit_condition;
+  return pimpl->should_exit();
 }
 
-void Screen::print(int y, int x, std::string str) {
-  mvprintw(y, x, "%s", str.c_str());
+void Screen::print(int y, int x, std::string &str) {
+  pimpl->print(y, x, str);
 }
 
 void Screen::refresh() {
-  ::refresh();
+  pimpl->refresh();
 }
 
 void Screen::clear() {
-  ::clear();
+  pimpl->clear();
 }
 
 void Screen::add_win(Window* win) {
-  pimpl->windows.push_back(win);
-  pimpl->num_windows++;
+  windows.push_back(win);
+  ++num_windows;
 }
 
 void Screen::remove_win(Window* win) {
   try {
-    pimpl->windows.erase(std::remove(pimpl->windows.begin(),
-                                     pimpl->windows.end(), win),
-                                     pimpl->windows.end());
-    pimpl->num_windows--;
+    windows.erase(
+        std::remove( windows.begin(), windows.end(), win),
+        windows.end()
+      );
+    --num_windows;
   }
   catch(std::exception e) {
     return;
@@ -116,56 +135,35 @@ void Screen::remove_win(Window* win) {
 }
 
 void Screen::end_screen() {
-  if (get_instance != NULL) {
-    if (scr->pimpl->num_windows > 0) {
-      for (
-          auto it = scr->pimpl->windows.begin();
-          it != scr->pimpl->windows.end();
-          it++
-        ) {
-        Window* p_win = *it;
-        Window::destroy_win(p_win);
-      }
+  if (num_windows > 0) {
+    for (auto win : windows) {
+      Window::destroy_win(win);
     }
-    delete scr;
-    scr = NULL;
   }
+  endwin();
 }
 
 void Screen::update() {
-  if (scr != NULL) {
-    if (scr->pimpl->num_windows > 0) {
-      for (auto it = scr->pimpl->windows.begin();
-           it != scr->pimpl->windows.end();
-           it++) {
-        Window* p_win = *it;
-        p_win->update();
-      }
+  if (num_windows > 0) {
+    for (auto w : windows) {
+      w->update();
     }
-    else {
-      if (scr->pimpl->update_cb != NULL) {
-        scr->pimpl->update_cb(scr->pimpl->update_cb_data);
-      }
-    }
+  }
+  else {
+    pimpl->update();
   }
 }
 
-void Screen::mainloop()
-{
-  while(!Screen::should_exit()) {
-    Screen::update();
+void Screen::mainloop() {
+  while(!should_exit()) {
+    update();
   }
 }
 
 void Screen::set_focus(Window *p_win) {
-  if (scr != NULL) {
-    if (scr->pimpl->num_windows > 0) {
-      for (auto it = scr->pimpl->windows.begin();
-           it != scr->pimpl->windows.end();
-           it++) {
-        Window* _win = *it;
-        _win->set_focus((_win == p_win));
-      }
+  if (num_windows > 0) {
+    for (auto w : windows) {
+      w->set_focus((w == p_win));
     }
   }
 }

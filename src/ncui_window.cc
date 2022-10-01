@@ -60,8 +60,6 @@ class Window::WindowImpl {
 
   pthread_t      event_handler_thread;
 
-  //friend class Window;
-  
   public:
 
   WindowImpl(
@@ -487,7 +485,7 @@ Window::Window(
         )
       ) {
 
-  Screen::get_instance()->add_win(this);
+  Screen::get_instance().add_win(this);
 }
 
 Window::Window(
@@ -507,14 +505,14 @@ Window::Window(
     ) {
 
   parent_window->add_child(this);
-  Screen::get_instance()->add_win(this);
+  Screen::get_instance().add_win(this);
 }
 
 Window::~Window() {
   if (parent_window != NULL) {
     parent_window->del_child(this);
   }
-  Screen::get_instance()->remove_win(this);
+  Screen::get_instance().remove_win(this);
 }
 
 Window* Window::create_window(const int _h, const int _w,

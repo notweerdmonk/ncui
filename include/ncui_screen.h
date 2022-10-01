@@ -24,23 +24,28 @@ namespace ncui {
      * A pointer to an instance of ncui::Screen::ScreenImpl class that
      * implements the functionality.
      */
-    ScreenImpl* pimpl;
-    /**
-     * A static pointer to an instance of ncui::Screen class.
-     */
-    static Screen* scr;
+    std::unique_ptr<ScreenImpl> pimpl;
 
-  private:
+    std::vector<Window*> windows;
+
+    int num_windows;
+
+
     /* Private constructor and destructor to enforce singleton class */
     Screen();
     ~Screen();
+
+    /**
+     * @brief Get the exit condition for the event loop.
+     */
+    bool should_exit();
 
   public:
     /**
      * @brief Get a pointer to the single instance of ncui::Screen class.
      * @return A pointer to an instance of ncui::Screen class.
      */
-    static Screen* get_instance();
+    static Screen& get_instance();
 
     /*
      * @brief Create the instance of ncui::Screen class if it does not exists.
@@ -51,7 +56,7 @@ namespace ncui {
     /**
      * @brief Enable use of colors in the ncurses screen.
      */
-    static void enable_color();
+    void enable_color();
 
     /**
      * @brief Set the visibility of the cursor.
@@ -63,7 +68,7 @@ namespace ncui {
      * <TR>   <TD>2</TD>      <TD>Very visible</TD> </TR>
      * </TABLE>
      */
-    static int set_cursor(int visibility);
+    int set_cursor(int visibility);
 
     /**
      * @brief Set the exit condition for the event loop.
@@ -71,30 +76,25 @@ namespace ncui {
     static void exit_screen();
 
     /**
-     * @brief Get the exit condition for the event loop.
-     */
-    static bool should_exit();
-
-    /**
      * @brief Destroy all child windows and the instance of ncui::Screen class.
      */
-    static void end_screen();
+    void end_screen();
 
     /**
      * @brief Update each of the child windows.
      */
-    static void update();
+    void update();
 
     /**
      * @brief Run the event loop.
      */
-    static void mainloop();
+    void mainloop();
 
     /**
      * @brief Give focus to a child window.
      * @param p_win A pointer to an object of ncui::Window class that is a child.
      */
-    static void set_focus(Window *p_win);
+    void set_focus(Window *p_win);
 
     /**
      * @brief Print a string at given location.
@@ -102,7 +102,7 @@ namespace ncui {
      * @param x The column to start printing from.
      * @param str The std::string object to print.
      */
-    void print(int y, int x, std::string str);
+    void print(int y, int x, std::string &str);
 
     /**
      * @brief Draw the ncurses screen.

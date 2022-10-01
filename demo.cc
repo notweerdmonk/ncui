@@ -52,9 +52,10 @@ void* mouse_cb(win_ev_cb_data_t cb_data, win_ev_user_data_t user_data)
 int main()
 {
   /* initialize */
-  Screen::init();
-  //Screen::enable_color();
-  Screen::set_cursor(1);
+  Screen &scr = Screen::get_instance();
+
+  //scr.enable_color();
+  scr.set_cursor(1);
 
   /* create windows */
   Window* my_win = Window::create_window(20, 60, 1, 1, true, false);
@@ -72,10 +73,10 @@ int main()
   textfield_win->reg_event_handler(WIN_EV_KEY, &key_cb, textfield_win);
   textfield_win->reg_event_handler(WIN_EV_MOUSE, &mouse_cb, NULL);
 
-  Screen::set_focus(textfield_win);
+  scr.set_focus(textfield_win);
 
   /* main loop */
-  Screen::mainloop();
+  scr.mainloop();
 
   /* deinitialize */
   Window::destroy_win(textfield_win);
@@ -83,7 +84,7 @@ int main()
   Window::destroy_win(banner_win);
   Window::destroy_win(my_win);
 
-  Screen::end_screen();
+  scr.end_screen();
   
   return 0;
 }
