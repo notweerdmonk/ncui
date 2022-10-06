@@ -196,13 +196,19 @@ class Window::WindowImpl {
 
               if (me.is_textfield == true) {
                 if (me.cur.x <= me.win_dim.w) {
-                  me.addchar(key);
+                  if (key != 9) {
+                    me.addchar(key);
+                  }
                 }
 
-                if (key == 10)
+                if (key == 10) {
                   me.p_text_buf->newline();
-                else
-                  me.p_text_buf->put(key);
+                }
+                else {
+                  if (key != 9) {
+                    me.p_text_buf->put(key);
+                  }
+                }
               }
               if (me.is_bordered == true) {
                 /* Enter/Return key */
