@@ -85,6 +85,8 @@ int main()
   Window::destroy_win(my_win);
 
   scr.end_screen();
+
+  exit_curses(EXIT_SUCCESS);
   
   return 0;
 }
