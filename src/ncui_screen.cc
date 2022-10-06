@@ -135,10 +135,9 @@ void Screen::remove_win(Window* win) {
 }
 
 void Screen::end_screen() {
-  if (num_windows > 0) {
-    for (auto win : windows) {
-      Window::destroy_win(win);
-    }
+  while (!windows.empty()) {
+    Window* win = windows.back();
+    Window::destroy_win(win);
   }
   endwin();
 }
