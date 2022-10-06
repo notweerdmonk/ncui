@@ -194,22 +194,21 @@ class Window::WindowImpl {
               win_ev = WIN_EV_TERM;
               me.ev_lookup[win_ev].cb_data = &key;
 
-              if (me.is_textfield == true) {
-                if (me.cur.x <= me.win_dim.w) {
-                  if (key != 9) {
-                    me.addchar(key);
-                  }
-                }
-
-                if (key == 10) {
-                  me.p_text_buf->newline();
-                }
-                else {
-                  if (key != 9) {
-                    me.p_text_buf->put(key);
-                  }
+              if (me.cur.x <= me.win_dim.w) {
+                if (key != 9) {
+                  me.addchar(key);
                 }
               }
+
+              if (key == 10) {
+                me.p_text_buf->newline();
+              }
+              else {
+                if (key != 9) {
+                  me.p_text_buf->put(key);
+                }
+              }
+
               if (me.is_bordered == true) {
                 /* Enter/Return key */
                 if (key == 10) {
@@ -231,6 +230,7 @@ class Window::WindowImpl {
                   }
                 }
               }
+
             }
             /* Movement keys */
             else if ((key >= KEY_DOWN) &&
