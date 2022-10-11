@@ -275,6 +275,11 @@ namespace ncui {
      */
     void set_focus(bool focus);
 
+    /**
+     * @brief Check if the ncui::Window is a textfield.
+     * @return true or false.
+     */
+    bool is_textfield();
   };
 
 }

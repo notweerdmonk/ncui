@@ -39,9 +39,11 @@ class Window::WindowImpl {
 
   WINDOW*        parent_win_handle;
 
-  bool           is_bordered  : 1;
-  bool           is_dirty     : 1;
-  bool           is_textfield : 1;
+  Window*        win;
+
+  bool           bordered  : 1;
+  bool           textfield : 1;
+  bool           dirty     : 1;
   bool           was_resized  : 1;
   bool           has_focus    : 1;
 
@@ -61,12 +63,15 @@ class Window::WindowImpl {
   public:
 
   WindowImpl(
+      Window* win,
       WINDOW* parent_win,
       const int h, const int w,
       const int y, const int x,
-      bool is_bordered,
-      bool is_textfield
+      bool bordered,
+      bool textfield
     ) {
+
+    this->win = win;
 
     parent_win_handle = parent_win;
 
@@ -99,14 +104,14 @@ class Window::WindowImpl {
     win_coord.x = x;
     cur.x = cur.y = 0;
 
-    this->is_bordered = is_bordered;
-    if (this->is_bordered == TRUE) {
+    this->bordered = bordered;
+    if (bordered == TRUE) {
       win_dim.h -= 2;
       win_dim.w -= 2;
     }
 
-    this->is_textfield = is_textfield;
-    if (this->is_textfield == TRUE) {
+    this->textfield = textfield;
+    if (textfield == TRUE) {
       keypad(win_handle, TRUE);
       nodelay(win_handle, TRUE);
 
@@ -118,7 +123,7 @@ class Window::WindowImpl {
 
     clear();
 
-    if (is_bordered == TRUE) {
+    if (bordered == TRUE) {
       box();
     }
   }
@@ -162,6 +167,11 @@ class Window::WindowImpl {
       }
 
       switch(key) {
+        case 9:
+          {
+            Screen::get_instance().set_focus_next(me.win);
+            break;
+          }
         case KEY_MOUSE:
           {
             if (getmouse(&ev) == OK) {
@@ -181,7 +191,7 @@ class Window::WindowImpl {
           }
         default:
           {
-            if (me.is_textfield) {
+            if (me.textfield) {
               /* Backspace needs special handling */
               if (key == KEY_BACKSPACE) {
                 win_ev = WIN_EV_TERM;
@@ -209,7 +219,7 @@ class Window::WindowImpl {
                   }
                 }
 
-                if (me.is_bordered == true) {
+                if (me.bordered == true) {
                   /* Enter/Return key */
                   if (key == 10) {
                     if (me.cur.y < me.win_dim.h) {
@@ -224,7 +234,7 @@ class Window::WindowImpl {
                       me.move_cur(++me.cur.y, 1);
                     }
                     else if (me.cur.y == me.win_dim.h) {
-                      if (me.is_textfield) {
+                      if (me.textfield) {
                         me.p_text_buf->move_col_rel(-1);
                       }
                     }
@@ -238,7 +248,7 @@ class Window::WindowImpl {
                 win_ev = WIN_EV_KEY;
                 me.ev_lookup[win_ev].cb_data = &key;
               }
-            } /* if (is_textfield) */
+            } /* if (textfield) */
           }
       }
 
@@ -281,13 +291,13 @@ class Window::WindowImpl {
 
   void box() {
     ::box(win_handle, 0, 0);
-    is_dirty = true;
+    dirty = true;
   }
 
   void print(int y, int x, std::string str) {
-    if (!is_textfield) {
+    if (!textfield) {
 
-      if (!is_bordered) {
+      if (!bordered) {
         mvwprintw(win_handle, y, x, "%s", str.c_str());
 
       } else {
@@ -295,7 +305,7 @@ class Window::WindowImpl {
         std::size_t len = str.length();
         std::size_t pos = 0;
 
-        if (is_bordered) {
+        if (bordered) {
           y++, x++;
         }
 
@@ -308,13 +318,13 @@ class Window::WindowImpl {
           len -= count;
           pos += count;
           if (first_line) {
-            x = (is_bordered) ? 1: 0;
+            x = (bordered) ? 1: 0;
             first_line = false;
           }
         }
       }
 
-      is_dirty = true;
+      dirty = true;
     }
   }
 
@@ -322,11 +332,11 @@ class Window::WindowImpl {
     win_coord.y = y;
     win_coord.x = x;
     mvwin(win_handle, win_coord.y, win_coord.x);
-    is_dirty = true;
+    dirty = true;
   }
 
   void move_cur(int y, int x) {
-    if (is_bordered) {
+    if (bordered) {
       if (y < 1) {
         y = 1;
       }
@@ -355,14 +365,14 @@ class Window::WindowImpl {
     cur.y = y;
     cur.x = x;
 
-    is_dirty = true;
+    dirty = true;
   }
 
   void move_cur_rel(int y_offset, int x_offset) {
     cur.y += y_offset;
     cur.x += x_offset;
 
-    if (is_bordered) {
+    if (bordered) {
       if (cur.y < 1) {
         cur.y = 1;
       }
@@ -388,7 +398,7 @@ class Window::WindowImpl {
 
     wmove(win_handle, cur.y, cur.x);
 
-    is_dirty = true;
+    dirty = true;
   }
 
   void get_cur(int& y, int& x) {
@@ -397,7 +407,7 @@ class Window::WindowImpl {
 
   void clear() {
     wclear(win_handle);
-    if (is_bordered) {
+    if (bordered) {
       move_cur(1, 1);
     } else {
       move_cur(0, 0);
@@ -405,10 +415,10 @@ class Window::WindowImpl {
   }
 
   void draw() {
-    //if (is_bordered == TRUE) {
+    //if (bordered == TRUE) {
     //  box();
     //}
-    is_dirty = false;
+    dirty = false;
     if (parent_win_handle) {
       touchwin(parent_win_handle);
     }
@@ -422,7 +432,7 @@ class Window::WindowImpl {
       }
     }
 
-    if (is_dirty) {
+    if (dirty) {
       draw();
     }
   }
@@ -432,33 +442,37 @@ class Window::WindowImpl {
   }
 
   int addchar(char c) {
-    is_dirty = true;
+    dirty = true;
     ++cur.x;
     return waddch(win_handle, c);
   }
 
   void bksp() {
-    if (((is_bordered == true) && (cur.x > 1)) &&
+    if (((bordered == true) && (cur.x > 1)) &&
         (cur.x > 0)) {
       mvwaddch(win_handle, cur.y, --cur.x, ' ');
       wmove(win_handle, cur.y, cur.x);
-      is_dirty = true;
+      dirty = true;
     }
-    else if ((is_bordered == true && cur.y > 1) &&
+    else if ((bordered == true && cur.y > 1) &&
              cur.y > 0) {
       cur.x = win_dim.w;
       mvwaddch(win_handle, --cur.y, cur.x, ' ');
       wmove(win_handle, cur.y, cur.x);
-      is_dirty = true;
+      dirty = true;
     }
 
-    if (is_textfield == true) {
+    if (textfield == true) {
       p_text_buf->bksp();
     }
   }
 
   void set_focus(bool focus) {
     has_focus = focus;
+  }
+
+  bool is_textfield() {
+    return textfield;
   }
 };
 
@@ -481,15 +495,16 @@ void Window::del_child(Window* child) {
 Window::Window(
     const int h, const int w,
     const int y, const int x,
-    bool is_bordered,
-    bool is_textfield
+    bool bordered,
+    bool textfield
   ) : pimpl(
         new WindowImpl(
+          this,
           NULL,
           h, w,
           y, x,
-          is_bordered,
-          is_textfield
+          bordered,
+          textfield
         )
       ) {
 
@@ -500,17 +515,18 @@ Window::Window(
     Window* parent_window,
     const int h, const int w,
     const int y, const int x,
-    bool is_bordered,
-    bool is_textfield
+    bool bordered,
+    bool textfield
   ) : pimpl(
     new WindowImpl(
+      this,
       parent_window->get_win_handle(),
       h, w,
       y, x,
-      is_bordered,
-      is_textfield
-      )
-    ) {
+      bordered,
+      textfield
+    )
+  ) {
 
   parent_window->add_child(this);
   Screen::get_instance().add_win(this);
@@ -545,8 +561,8 @@ Window* Window::create_window(
     Window* p_parent_win,
     const int h, const int w,
     const int y, const int x,
-    bool is_bordered,
-    bool is_textfield
+    bool bordered,
+    bool textfield
   ) {
 
   Window* new_win = NULL;
@@ -555,8 +571,8 @@ Window* Window::create_window(
         p_parent_win,
         h, w,
         y, x,
-        is_bordered,
-        is_textfield
+        bordered,
+        textfield
       );
   } catch(std::exception e) {
     return NULL;
@@ -647,4 +663,8 @@ void Window::bksp() {
 
 void Window::set_focus(bool focus) {
   pimpl->set_focus(focus);
+}
+
+bool Window::is_textfield() {
+  return pimpl->is_textfield();
 }

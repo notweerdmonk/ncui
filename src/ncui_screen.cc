@@ -160,9 +160,18 @@ void Screen::mainloop() {
 }
 
 void Screen::set_focus(Window *p_win) {
-  if (num_windows > 0) {
     for (auto w : windows) {
       w->set_focus((w == p_win));
     }
-  }
+}
+
+void Screen::set_focus_next(Window *p_win) {
+  auto res = std::find(windows.begin(), windows.end(), p_win);
+  do {
+    ++res;
+    if (res == windows.end()) {
+      res = windows.begin();
+    }
+  } while (!(*res)->is_textfield());
+  set_focus(*res);
 }

@@ -30,7 +30,6 @@ namespace ncui {
 
     int num_windows;
 
-
     /* Private constructor and destructor to enforce singleton class */
     Screen();
     ~Screen();
@@ -92,9 +91,18 @@ namespace ncui {
 
     /**
      * @brief Give focus to a child window.
-     * @param p_win A pointer to an object of ncui::Window class that is a child.
+     * @param p_win A pointer to an object of ncui::Window class that is a
+     * child.
      */
     void set_focus(Window *p_win);
+
+    /**
+     * @brief Move focus to next textfield window.
+     * @param p_win A pointer to an object of ncui::Window class that is a
+     * child. The focus shall move to the next ncui::Window that is a 
+     * textfield, in the list of children.
+     */
+    void set_focus_next(Window *p_win);
 
     /**
      * @brief Print a string at given location.
