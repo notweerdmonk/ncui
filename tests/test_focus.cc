@@ -66,11 +66,6 @@ int main()
 
   Window* info_win = Window::create_window(my_win, 5, 50, 5, 5, true, true);
   info_win->reg_event_handler(WIN_EV_KEY, &key_cb, info_win);
-  //info_win->reg_event_handler(WIN_EV_MOUSE, &mouse_cb, NULL);
-  //info_win->print(
-  //    "the quick brown fox jumps over the lazy dog THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG "
-  //    "She sells pwned sea shells on the sea shore"
-  //  );
 
   Window* textfield_win = Window::create_window(my_win, 5, 50, 10, 5, true, true);
   textfield_win->reg_event_handler(WIN_EV_KEY, &key_cb, textfield_win);
