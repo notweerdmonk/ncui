@@ -157,108 +157,104 @@ class Window::WindowImpl {
     win_event_t win_ev;
     int key;
 
-    if (me.has_focus) {
+    win_ev = WIN_EV_NONE;
+    key = me.getchar();
 
-      win_ev = WIN_EV_NONE;
-      key = me.getchar();
+    if (key == ERR) {
+      return NULL;
+    }
 
-      if (key == ERR) {
-        return NULL;
-      }
-
-      switch(key) {
-        case 9:
-          {
-            Screen::get_instance().set_focus_next(me.win);
-            break;
-          }
-        case KEY_MOUSE:
-          {
-            if (getmouse(&ev) == OK) {
-              win_ev = WIN_EV_MOUSE;
-              /* copy data */
-              me.ev_lookup[win_ev].cb_data = &ev.bstate;
-            }
-            break;
-          }
-        case KEY_RESIZE:
-          {
-            if (me.was_resized == true) {
-              win_ev = WIN_EV_RESIZE;
-              me.ev_lookup[win_ev].cb_data = &me.resize_dim;
-            }
-            break;
-          }
-        default:
-          {
-            if (me.textfield) {
-              /* Backspace needs special handling */
-              if (key == KEY_BACKSPACE) {
-                win_ev = WIN_EV_TERM;
-                me.ev_lookup[win_ev].cb_data = &key;
-                me.bksp();
-              }
-              /* Keyboard events */
-              else if ((key >= 0) &&
-                  (key <= 127)) {
-                win_ev = WIN_EV_TERM;
-                me.ev_lookup[win_ev].cb_data = &key;
-
-                if (me.cur.x <= me.win_dim.w) {
-                  if (key != 9) {
-                    me.addchar(key);
-                  }
-                }
-
-                if (key == 10) {
-                  me.p_text_buf->newline();
-                }
-                else {
-                  if (key != 9) {
-                    me.p_text_buf->put(key);
-                  }
-                }
-
-                if (me.bordered == true) {
-                  /* Enter/Return key */
-                  if (key == 10) {
-                    if (me.cur.y < me.win_dim.h) {
-                      me.move_cur(++me.cur.y, 1);
-                    } else if (me.cur.y == me.win_dim.h) {
-                      me.move_cur(me.cur.y, --me.cur.x);
-                    }
-                    me.box();
-                  }
-                  else if (me.cur.x > me.win_dim.w) {
-                    if (me.cur.y < me.win_dim.h) {
-                      me.move_cur(++me.cur.y, 1);
-                    }
-                    else if (me.cur.y == me.win_dim.h) {
-                      if (me.textfield) {
-                        me.p_text_buf->move_col_rel(-1);
-                      }
-                    }
-                  }
-                }
-
-              }
-              /* Movement keys */
-              else if ((key >= KEY_DOWN) &&
-                  (key < KEY_MOUSE)) {
-                win_ev = WIN_EV_KEY;
-                me.ev_lookup[win_ev].cb_data = &key;
-              }
-            } /* if (textfield) */
-          }
-      }
-
-      if (win_ev != WIN_EV_NONE) {
-        win_ev_entry_t ev_data = me.ev_lookup[win_ev];
-        if (ev_data.cb != NULL) {
-          ev_data.cb(ev_data.cb_data, ev_data.user_data);
+    switch(key) {
+      case 9:
+        {
+          Screen::get_instance().set_focus_next(me.win);
+          break;
         }
-      }
+      case KEY_MOUSE:
+        {
+          if (getmouse(&ev) == OK) {
+            win_ev = WIN_EV_MOUSE;
+            /* copy data */
+            me.ev_lookup[win_ev].cb_data = &ev.bstate;
+          }
+          break;
+        }
+      case KEY_RESIZE:
+        {
+          if (me.was_resized == true) {
+            win_ev = WIN_EV_RESIZE;
+            me.ev_lookup[win_ev].cb_data = &me.resize_dim;
+          }
+          break;
+        }
+      default:
+        {
+          if (me.textfield) {
+            /* Backspace needs special handling */
+            if (key == KEY_BACKSPACE) {
+              win_ev = WIN_EV_TERM;
+              me.ev_lookup[win_ev].cb_data = &key;
+              me.bksp();
+            }
+            /* Keyboard events */
+            else if ((key >= 0) &&
+                (key <= 127)) {
+              win_ev = WIN_EV_TERM;
+              me.ev_lookup[win_ev].cb_data = &key;
 
+              if (me.cur.x <= me.win_dim.w) {
+                if (key != 9) {
+                  me.addchar(key);
+                }
+              }
+
+              if (key == 10) {
+                me.p_text_buf->newline();
+              }
+              else {
+                if (key != 9) {
+                  me.p_text_buf->put(key);
+                }
+              }
+
+              if (me.bordered == true) {
+                /* Enter/Return key */
+                if (key == 10) {
+                  if (me.cur.y < me.win_dim.h) {
+                    me.move_cur(++me.cur.y, 1);
+                  } else if (me.cur.y == me.win_dim.h) {
+                    me.move_cur(me.cur.y, --me.cur.x);
+                  }
+                  me.box();
+                }
+                else if (me.cur.x > me.win_dim.w) {
+                  if (me.cur.y < me.win_dim.h) {
+                    me.move_cur(++me.cur.y, 1);
+                  }
+                  else if (me.cur.y == me.win_dim.h) {
+                    if (me.textfield) {
+                      me.p_text_buf->move_col_rel(-1);
+                    }
+                  }
+                }
+              }
+
+            }
+            /* Movement keys */
+            else if ((key >= KEY_DOWN) &&
+                (key < KEY_MOUSE)) {
+              win_ev = WIN_EV_KEY;
+              me.ev_lookup[win_ev].cb_data = &key;
+            }
+          } /* if (textfield) */
+        }
+    }
+
+    if (win_ev != WIN_EV_NONE) {
+      win_ev_entry_t ev_data = me.ev_lookup[win_ev];
+      if (ev_data.cb != NULL) {
+        ev_data.cb(ev_data.cb_data, ev_data.user_data);
+      }
     }
 
     return NULL;
@@ -468,7 +464,9 @@ class Window::WindowImpl {
   }
 
   void set_focus(bool focus) {
-    has_focus = focus;
+    if (has_focus = focus) {
+      dirty = true;
+    }
   }
 
   bool is_textfield() {
