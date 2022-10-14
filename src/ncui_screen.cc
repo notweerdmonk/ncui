@@ -75,7 +75,7 @@ class Screen::ScreenImpl {
   }
 };
 
-Screen::Screen() : pimpl(new ScreenImpl()) {
+Screen::Screen() : focused_win(NULL), pimpl(new ScreenImpl()) {
 
 }
 
@@ -119,6 +119,7 @@ void Screen::clear() {
 void Screen::add_win(Window* win) {
   windows.push_back(win);
   ++num_windows;
+  set_focus(win);
 }
 
 void Screen::remove_win(Window* win) {
@@ -160,9 +161,15 @@ void Screen::mainloop() {
 }
 
 void Screen::set_focus(Window *p_win) {
+  if (p_win->is_textfield()) {
     for (auto w : windows) {
       w->set_focus((w == p_win));
     }
+    if (focused_win) {
+      focused_win->draw();
+    }
+    focused_win = p_win;
+  }
 }
 
 void Screen::set_focus_next(Window *p_win) {

@@ -26,16 +26,30 @@ namespace ncui {
      */
     std::unique_ptr<ScreenImpl> pimpl;
 
+    /**
+     * List of windows added to ncui::Screen.
+     */
     std::vector<Window*> windows;
 
+    /**
+     * Count of windows added to ncui::Screen.
+     */
     int num_windows;
 
-    /* Private constructor and destructor to enforce singleton class */
+    /**
+     * Pointer to ncui::Window that has focus. It will be a textfield.
+     */
+    Window* focused_win;
+
+    /**
+     * Private constructor and destructor to enforce singleton class.
+     */
     Screen();
     ~Screen();
 
     /**
      * @brief Get the exit condition for the event loop.
+     * @return true or false.
      */
     bool should_exit();
 
