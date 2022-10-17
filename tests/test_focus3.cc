@@ -59,7 +59,7 @@ int main()
   scr.set_cursor(1);
 
   /* create windows */
-  Window* my_win = Window::create_window(20, 60, 1, 1, true, false);
+  Window* my_win = Window::create_window(30, 60, 1, 1, true, false);
 
   Window* banner_win = Window::create_window(my_win, 3, 50, 2, 5, true, false);
   banner_win->print(0, 0, "Use TAB to cycle focus");
@@ -71,12 +71,19 @@ int main()
   textfield_win_2->reg_event_handler(WIN_EV_KEY, &key_cb, textfield_win_2);
   textfield_win_2->reg_event_handler(WIN_EV_MOUSE, &mouse_cb, NULL);
 
+  Window* info_win = Window::create_window(my_win, 5, 50, 15, 5, true, false);
+  info_win->print(
+      "the quick brown fox jumps over the lazy dog THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG "
+      "She sells pwned sea shells on the sea shore"
+    );
+
   scr.set_focus(textfield_win_1);
 
   /* main loop */
   scr.mainloop();
 
   /* deinitialize */
+  Window::destroy_win(info_win);
   Window::destroy_win(textfield_win_2);
   Window::destroy_win(textfield_win_1);
   Window::destroy_win(banner_win);

@@ -18,7 +18,7 @@ HEADERS = include/ncui_common.h include/ncui_types.h include/ncui_field_buffer.h
 
 DEPENDENCIES = $(HEADERS)
 
-all: tests/test_demo tests/test_focus
+all: tests/test_demo tests/test_focus tests/test_focus2 tests/test_focus3
 
 $(OBJECTS): $(DEPENDENCIES)
 
@@ -31,5 +31,11 @@ tests/test_demo: $(OBJECTS) tests/test_demo.o
 tests/test_focus: $(OBJECTS) tests/test_focus.o
 	g++ $(CFLAGS) $(DEBUG_OPTIONS) $(INCLUDE_PATH_FLAGS) $(LIB_PATH_FLAGS) $(OBJECTS) tests/test_focus.o -o $@ $(LIBS_FLAGS)
 
+tests/test_focus2: $(OBJECTS) tests/test_focus2.o
+	g++ $(CFLAGS) $(DEBUG_OPTIONS) $(INCLUDE_PATH_FLAGS) $(LIB_PATH_FLAGS) $(OBJECTS) tests/test_focus2.o -o $@ $(LIBS_FLAGS)
+
+tests/test_focus3: $(OBJECTS) tests/test_focus3.o
+	g++ $(CFLAGS) $(DEBUG_OPTIONS) $(INCLUDE_PATH_FLAGS) $(LIB_PATH_FLAGS) $(OBJECTS) tests/test_focus3.o -o $@ $(LIBS_FLAGS)
+
 clean:
-	rm -f $(OBJECTS) tests/test_demo.o tests/test_demo tests/test_focus.o tests/test_focus
+	rm -f $(OBJECTS) tests/test_demo.o tests/test_demo tests/test_focus.o tests/test_focus tests/test_focus2.o tests/test_focus2 tests/test_focus3.o tests/test_focus3
