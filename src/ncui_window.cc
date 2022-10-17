@@ -472,6 +472,10 @@ class Window::WindowImpl {
   bool is_textfield() {
     return textfield;
   }
+
+  void mark_dirty() {
+    dirty = true;
+  }
 };
 
 WINDOW* Window::get_win_handle() {
@@ -665,4 +669,8 @@ void Window::set_focus(bool focus) {
 
 bool Window::is_textfield() {
   return pimpl->is_textfield();
+}
+
+void Window::mark_dirty() {
+  pimpl->mark_dirty();
 }

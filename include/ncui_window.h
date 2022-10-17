@@ -280,6 +280,11 @@ namespace ncui {
      * @return true or false.
      */
     bool is_textfield();
+
+    /**
+     * @brief Mark a ncui::Window as dirty. Dirty windows are redrawn.
+     */
+    void mark_dirty();
   };
 
 }
