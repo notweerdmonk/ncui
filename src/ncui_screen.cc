@@ -161,14 +161,14 @@ void Screen::mainloop() {
 }
 
 void Screen::set_focus(Window *p_win) {
+  if (focused_win) {
+    focused_win->draw();
+  }
+  focused_win = p_win;
   if (p_win->is_textfield()) {
     for (auto w : windows) {
       w->set_focus((w == p_win));
     }
-    if (focused_win) {
-      focused_win->draw();
-    }
-    focused_win = p_win;
   }
 }
 
