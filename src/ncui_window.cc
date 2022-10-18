@@ -197,8 +197,8 @@ class Window::WindowImpl {
               me.bksp();
             }
             /* Keyboard events */
-            else if ((key >= 0) &&
-                (key <= 127)) {
+            else if ((key > 31) &&
+                (key < 127)) {
               win_ev = WIN_EV_TERM;
               me.ev_lookup[win_ev].cb_data = &key;
 
