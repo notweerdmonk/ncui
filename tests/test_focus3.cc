@@ -40,22 +40,11 @@ void* key_cb(win_ev_cb_data_t cb_data, win_ev_user_data_t user_data)
   return 0;
 }
 
-void* mouse_cb(win_ev_cb_data_t cb_data, win_ev_user_data_t user_data)
-{
-  mmask_t input = *(mmask_t*)(cb_data);
-  if (input == BUTTON1_CLICKED)
-  {
-    Screen::exit_screen();
-  }
-  return 0;
-}
-
 int main()
 {
   /* initialize */
   Screen &scr = Screen::get_instance();
 
-  //scr.enable_color();
   scr.set_cursor(1);
 
   /* create windows */
@@ -69,7 +58,6 @@ int main()
 
   Window* textfield_win_2 = Window::create_window(my_win, 5, 50, 10, 5, true, true);
   textfield_win_2->reg_event_handler(WIN_EV_KEY, &key_cb, textfield_win_2);
-  textfield_win_2->reg_event_handler(WIN_EV_MOUSE, &mouse_cb, NULL);
 
   Window* info_win = Window::create_window(my_win, 5, 50, 15, 5, true, false);
   info_win->print(
