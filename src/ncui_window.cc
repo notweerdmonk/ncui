@@ -175,7 +175,7 @@ class Window::WindowImpl {
           if (getmouse(&ev) == OK) {
             win_ev = WIN_EV_MOUSE;
             /* copy data */
-            me.ev_lookup[win_ev].cb_data = &ev.bstate;
+            me.ev_lookup[win_ev].cb_data = &ev;
           }
           break;
         }
@@ -476,6 +476,10 @@ class Window::WindowImpl {
   void mark_dirty() {
     dirty = true;
   }
+
+  bool enclose(int y, int x) {
+    return (wenclose(win_handle, y, x) == TRUE) ? true : false;
+  }
 };
 
 WINDOW* Window::get_win_handle() {
@@ -673,4 +677,8 @@ bool Window::is_textfield() {
 
 void Window::mark_dirty() {
   pimpl->mark_dirty();
+}
+
+bool Window::enclose(int y, int x) {
+  return pimpl->enclose(y, x);
 }

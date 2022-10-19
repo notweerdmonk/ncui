@@ -285,6 +285,13 @@ namespace ncui {
      * @brief Mark a ncui::Window as dirty. Dirty windows are redrawn.
      */
     void mark_dirty();
+
+    /**
+     * @brief Tests whether a given pair of screen-relative character-cell
+     * coordinates is enclosed by a given window.
+     * @return true or falase.
+     */
+    bool enclose(int y, int x);
   };
 
 }
