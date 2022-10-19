@@ -42,8 +42,8 @@ void* key_cb(win_ev_cb_data_t cb_data, win_ev_user_data_t user_data)
 
 void* mouse_cb(win_ev_cb_data_t cb_data, win_ev_user_data_t user_data)
 {
-  mmask_t input = *(mmask_t*)(cb_data);
-  if (input == BUTTON1_CLICKED)
+  MEVENT input = *(MEVENT*)(cb_data);
+  if (input.bstate == BUTTON1_CLICKED)
   {
     Screen::exit_screen();
   }
@@ -55,7 +55,8 @@ int main()
   /* initialize */
   Screen &scr = Screen::get_instance();
 
-  //scr.enable_color();
+  scr.enable_color();
+  scr.enable_mouse_events();
   scr.set_cursor(1);
 
   /* create windows */
