@@ -27,7 +27,6 @@ class Screen::ScreenImpl {
       curs_set(0);
       cbreak();
       noecho();
-      mousemask(ALL_MOUSE_EVENTS, NULL);
     }
   }
 
@@ -46,6 +45,10 @@ class Screen::ScreenImpl {
 
   void enable_color() {
     start_color();
+  }
+
+  void enable_mouse_events() {
+    mousemask(ALL_MOUSE_EVENTS, NULL);
   }
 
   void exit_screen() {
@@ -94,6 +97,10 @@ int Screen::set_cursor(int visibility) {
 
 void Screen::enable_color() {
   pimpl->enable_color();
+}
+
+void Screen::enable_mouse_events() {
+  pimpl->enable_mouse_events();
 }
 
 void Screen::exit_screen() {

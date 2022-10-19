@@ -72,6 +72,11 @@ namespace ncui {
     void enable_color();
 
     /**
+     * @brief Enable mouse events.
+     */
+    void enable_mouse_events();
+
+    /**
      * @brief Set the visibility of the cursor.
      * @param visibility An integer stating the visibility.
      * <TABLE>
